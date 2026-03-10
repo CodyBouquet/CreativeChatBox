@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from database import init_db, get_db
 from pipedrive import post_note_to_deal, get_pipedrive_users
@@ -271,7 +271,18 @@ def health():
     return jsonify({"status": "ok", "timestamp": datetime.datetime.utcnow().isoformat()})
 
 
+@app.route("/panel")
+def panel():
+    return send_from_directory('../frontend', 'index.html')
+
+@app.route("/callback")
+def callback():
+    return "OK", 200
+
+# ─── STARTUP ─────────────────────────────────────────────────────────────────
+
+init_db()
+start_scheduler(app)
+
 if __name__ == "__main__":
-    init_db()
-    start_scheduler(app)
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=False)
