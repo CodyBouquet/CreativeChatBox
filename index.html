@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deal Chat</title>
+  <script src="https://cdn.jsdelivr.net/npm/@pipedrive/app-extensions-sdk@0/dist/index.umd.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #222533;
+      --border: #2e3147;
+      --accent: #4f6ef7;
+      --accent-hover: #6b85ff;
+      --accent-soft: rgba(79,110,247,0.12);
+      --text: #e8eaf0;
+      --text-muted: #7b8099;
+      --text-dim: #4a4f6a;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --system: #374151;
+      --radius: 10px;
+      --radius-sm: 6px;
+      --font: 'DM Sans', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      overflow: hidden;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+    }
+
+    .header-title {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .header-subtitle {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .btn-new {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+      font-family: var(--font);
+    }
+
+    .btn-new:hover { background: var(--accent-hover); }
+
+    /* ── VIEWS ── */
+    .view { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    .view.active { display: flex; }
+
+    /* ── THREAD LIST ── */
+    .thread-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .thread-list::-webkit-scrollbar { width: 4px; }
+    .thread-list::-webkit-scrollbar-track { background: transparent; }
+    .thread-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .thread-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+      margin-bottom: 4px;
+      position: relative;
+    }
+
+    .thread-item:hover {
+      background: var(--surface);
+      border-color: var(--border);
+    }
+
+    .thread-item.has-unread {
+      background: var(--accent-soft);
+      border-color: rgba(79,110,247,0.3);
+    }
+
+    .thread-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--surface2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+
+    .thread-info { flex: 1; min-width: 0; }
+
+    .thread-name {
+      font-weight: 500;
+      font-size: 12px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .thread-preview {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .thread-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .thread-time {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    .unread-badge {
+      background: var(--accent);
+      color: white;
+      border-radius: 10px;
+      padding: 1px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    .thread-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      margin-top: 3px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .status-dot.open { background: var(--green); }
+    .status-dot.closed { background: var(--text-dim); }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 10px;
+      color: var(--text-muted);
+      padding: 20px;
+      text-align: center;
+    }
+
+    .empty-icon { font-size: 32px; opacity: 0.5; }
+    .empty-text { font-size: 12px; line-height: 1.5; }
+
+    /* ── CHAT VIEW ── */
+    .chat-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .btn-back {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      transition: color 0.15s;
+    }
+
+    .btn-back:hover { color: var(--text); }
+
+    .chat-title {
+      flex: 1;
+      font-weight: 600;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chat-participants {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .btn-close-thread {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: var(--red);
+      border-radius: var(--radius-sm);
+      padding: 5px 9px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: var(--font);
+      white-space: nowrap;
+    }
+
+    .btn-close-thread:hover {
+      background: rgba(239,68,68,0.2);
+    }
+
+    .messages-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .messages-container::-webkit-scrollbar { width: 4px; }
+    .messages-container::-webkit-scrollbar-track { background: transparent; }
+    .messages-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .message-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-bottom: 8px;
+    }
+
+    .message-group-header {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .msg-author {
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--accent);
+    }
+
+    .msg-author.self { color: var(--green); }
+    .msg-author.system { color: var(--text-dim); }
+
+    .msg-time {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    .message-bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0 var(--radius) var(--radius) var(--radius);
+      padding: 7px 11px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text);
+      max-width: 95%;
+      word-break: break-word;
+    }
+
+    .message-bubble.self {
+      background: var(--accent-soft);
+      border-color: rgba(79,110,247,0.3);
+      border-radius: var(--radius) 0 var(--radius) var(--radius);
+      align-self: flex-end;
+    }
+
+    .message-bubble.system {
+      background: var(--system);
+      border-color: transparent;
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      font-style: italic;
+      font-size: 11px;
+      align-self: center;
+      max-width: 85%;
+      text-align: center;
+    }
+
+    .self-group { align-items: flex-end; }
+    .self-group .message-group-header { flex-direction: row-reverse; }
+
+    .date-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .date-divider-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .date-divider-text {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      white-space: nowrap;
+    }
+
+    /* ── INPUT ── */
+    .input-area {
+      padding: 10px 14px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .msg-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 12px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 12px;
+      resize: none;
+      min-height: 36px;
+      max-height: 100px;
+      line-height: 1.4;
+      transition: border-color 0.15s;
+      overflow-y: auto;
+    }
+
+    .msg-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .msg-input::placeholder { color: var(--text-dim); }
+
+    .btn-send {
+      width: 36px;
+      height: 36px;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius);
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn-send:hover { background: var(--accent-hover); }
+    .btn-send:active { transform: scale(0.95); }
+    .btn-send:disabled { background: var(--border); cursor: not-allowed; }
+
+    /* ── NEW THREAD MODAL ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      width: 100%;
+      max-width: 320px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    .modal-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    .form-group { margin-bottom: 14px; }
+
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 12px;
+      transition: border-color 0.15s;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .participants-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .participant-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .participant-option:hover { background: var(--surface2); }
+
+    .participant-option input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 14px;
+      height: 14px;
+    }
+
+    .participant-name { font-size: 12px; }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .btn-cancel {
+      flex: 1;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: var(--radius-sm);
+      padding: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: all 0.15s;
+    }
+
+    .btn-cancel:hover { border-color: var(--text-muted); color: var(--text); }
+
+    .btn-create {
+      flex: 1;
+      background: var(--accent);
+      border: none;
+      color: white;
+      border-radius: var(--radius-sm);
+      padding: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: var(--font);
+      transition: background 0.15s;
+    }
+
+    .btn-create:hover { background: var(--accent-hover); }
+
+    /* ── CLOSED THREAD BANNER ── */
+    .closed-banner {
+      background: var(--surface2);
+      border-top: 1px solid var(--border);
+      padding: 10px 14px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    /* ── LOADING ── */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      font-size: 12px;
+      gap: 8px;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .confirm-dialog {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 20px;
+    }
+
+    .confirm-dialog.active { display: flex; }
+
+    .confirm-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      width: 100%;
+      max-width: 280px;
+      text-align: center;
+    }
+
+    .confirm-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .confirm-text {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+
+    .confirm-actions {
+      display: flex;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    Connecting...
+  </div>
+</div>
+
+<!-- New Thread Modal -->
+<div class="modal-overlay" id="newThreadModal">
+  <div class="modal">
+    <div class="modal-title">💬 New Conversation</div>
+    <div class="form-group">
+      <label class="form-label">Topic</label>
+      <input class="form-input" id="threadTitle" placeholder="e.g. Need diagram, Material question..." />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Add People</label>
+      <div class="participants-list" id="participantsList">
+        <div style="color: var(--text-dim); font-size:11px; padding: 4px">Loading team members...</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-create" onclick="createThread()">Start Chat</button>
+    </div>
+  </div>
+</div>
+
+<!-- Close Confirm Dialog -->
+<div class="confirm-dialog" id="confirmDialog">
+  <div class="confirm-box">
+    <div class="confirm-title">Close Conversation?</div>
+    <div class="confirm-text">This will post the full chat history as a note on the deal. This cannot be undone.</div>
+    <div class="confirm-actions">
+      <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="btn-create" style="background:var(--red)" onclick="confirmClose()">Close & Post Note</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const BACKEND = 'https://your-railway-app.railway.app'; // ← UPDATE THIS
+  
+  let sdk, dealId, currentUser, allUsers = [];
+  let currentThreadId = null;
+  let pollInterval = null;
+  let pendingCloseThreadId = null;
+
+  // ── INIT ────────────────────────────────────────────────────────────────────
+
+  async function init() {
+    try {
+      sdk = await new AppExtensionsSDK().initialize({ size: { height: 600 } });
+      const context = await sdk.getContext();
+      dealId = context.deal?.id || context.id;
+      currentUser = {
+        id: context.user?.id,
+        name: context.user?.name || 'Unknown'
+      };
+
+      await loadUsers();
+      renderApp();
+      await loadThreads();
+      updateBadge();
+    } catch (err) {
+      document.getElementById('loading').innerHTML = 
+        `<span style="color:var(--red)">⚠ Failed to connect to Pipedrive</span>`;
+      console.error('Init failed:', err);
+    }
+  }
+
+  // ── RENDER APP SHELL ────────────────────────────────────────────────────────
+
+  function renderApp() {
+    document.getElementById('app').innerHTML = `
+      <div class="header">
+        <div class="header-left">
+          <div class="header-icon">💬</div>
+          <div>
+            <div class="header-title">Deal Chat</div>
+            <div class="header-subtitle" id="headerSub">Loading...</div>
+          </div>
+        </div>
+        <button class="btn-new" onclick="openModal()">+ New</button>
+      </div>
+
+      <div class="view active" id="viewThreads">
+        <div class="thread-list" id="threadList">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <div class="view" id="viewChat">
+        <div class="chat-header">
+          <button class="btn-back" onclick="backToList()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+          <div style="flex:1;min-width:0">
+            <div class="chat-title" id="chatTitle"></div>
+            <div class="chat-participants" id="chatParticipants"></div>
+          </div>
+          <button class="btn-close-thread" id="btnCloseThread" onclick="promptClose()">Close</button>
+        </div>
+        <div class="messages-container" id="messagesContainer"></div>
+        <div id="inputArea"></div>
+      </div>
+    `;
+  }
+
+  // ── THREADS ─────────────────────────────────────────────────────────────────
+
+  async function loadThreads() {
+    try {
+      const res = await fetch(`${BACKEND}/threads/${dealId}`);
+      const threads = await res.json();
+      renderThreadList(threads);
+      document.getElementById('headerSub').textContent = 
+        `${threads.filter(t => t.status === 'open').length} open · ${threads.length} total`;
+    } catch (err) {
+      document.getElementById('threadList').innerHTML = 
+        `<div class="empty-state"><div class="empty-icon">⚠</div><div class="empty-text">Could not load threads</div></div>`;
+    }
+  }
+
+  function renderThreadList(threads) {
+    const el = document.getElementById('threadList');
+    if (!threads.length) {
+      el.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">💬</div>
+          <div class="empty-text">No conversations yet.<br>Start one with your team.</div>
+        </div>`;
+      return;
+    }
+
+    el.innerHTML = threads.map(t => {
+      const initials = t.created_by_name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+      const time = t.last_message_at ? formatTime(t.last_message_at) : formatTime(t.created_at);
+      const preview = t.last_message ? truncate(t.last_message, 40) : 'No messages yet';
+      const participantNames = t.participants.map(p => p.user_name.split(' ')[0]).join(', ');
+
+      return `
+        <div class="thread-item ${t.unread_count > 0 ? 'has-unread' : ''}" onclick="openThread(${t.id})">
+          <div class="thread-avatar">${initials}</div>
+          <div class="thread-info">
+            <div class="thread-name">${escHtml(t.title)}</div>
+            <div class="thread-preview">${escHtml(preview)}</div>
+            <div class="thread-status">
+              <div class="status-dot ${t.status}"></div>
+              <span style="color:var(--text-dim)">${participantNames}</span>
+            </div>
+          </div>
+          <div class="thread-meta">
+            <div class="thread-time">${time}</div>
+            ${t.unread_count > 0 ? `<div class="unread-badge">${t.unread_count}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ── OPEN THREAD ─────────────────────────────────────────────────────────────
+
+  async function openThread(threadId) {
+    currentThreadId = threadId;
+    clearInterval(pollInterval);
+
+    const threadsRes = await fetch(`${BACKEND}/threads/${dealId}`);
+    const threads = await threadsRes.json();
+    const thread = threads.find(t => t.id === threadId);
+    if (!thread) return;
+
+    // Switch view
+    document.getElementById('viewThreads').classList.remove('active');
+    document.getElementById('viewChat').classList.add('active');
+
+    document.getElementById('chatTitle').textContent = thread.title;
+    document.getElementById('chatParticipants').textContent = 
+      thread.participants.map(p => p.user_name.split(' ')[0]).join(', ');
+
+    const closeBtn = document.getElementById('btnCloseThread');
+    if (thread.status === 'closed') {
+      closeBtn.style.display = 'none';
+    } else {
+      closeBtn.style.display = '';
+    }
+
+    await loadMessages(threadId, thread.status);
+    markRead(threadId);
+
+    if (thread.status === 'open') {
+      pollInterval = setInterval(() => loadMessages(threadId, 'open'), 5000);
+    }
+  }
+
+  async function loadMessages(threadId, status) {
+    try {
+      const res = await fetch(`${BACKEND}/threads/${threadId}/messages`);
+      const messages = await res.json();
+      renderMessages(messages, status);
+    } catch (err) {
+      console.error('Failed to load messages:', err);
+    }
+  }
+
+  function renderMessages(messages, status) {
+    const container = document.getElementById('messagesContainer');
+    const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 60;
+
+    if (!messages.length) {
+      container.innerHTML = `
+        <div class="empty-state" style="height:auto;padding:30px 0">
+          <div class="empty-icon">👋</div>
+          <div class="empty-text">Say something to get started</div>
+        </div>`;
+    } else {
+      let html = '';
+      let lastDate = '';
+      let lastUserId = null;
+
+      messages.forEach((msg, i) => {
+        const date = msg.created_at.slice(0,10);
+        const isSelf = msg.user_id == currentUser.id;
+        const isSystem = msg.user_id == 0;
+        const time = msg.created_at.slice(11,16);
+        const sameUser = lastUserId === msg.user_id;
+
+        if (date !== lastDate) {
+          html += `<div class="date-divider">
+            <div class="date-divider-line"></div>
+            <div class="date-divider-text">${formatDate(date)}</div>
+            <div class="date-divider-line"></div>
+          </div>`;
+          lastDate = date;
+          lastUserId = null;
+        }
+
+        if (isSystem) {
+          html += `<div class="message-group">
+            <div class="message-bubble system">${escHtml(msg.content)}</div>
+          </div>`;
+        } else if (!sameUser) {
+          html += `<div class="message-group ${isSelf ? 'self-group' : ''}">
+            <div class="message-group-header">
+              <span class="msg-author ${isSelf ? 'self' : ''}">${escHtml(msg.user_name.split(' ')[0])}</span>
+              <span class="msg-time">${time}</span>
+            </div>
+            <div class="message-bubble ${isSelf ? 'self' : ''}">${escHtml(msg.content)}</div>
+          </div>`;
+        } else {
+          // Continue group — find last group and append
+          html += `<div class="message-group ${isSelf ? 'self-group' : ''}">
+            <div class="message-bubble ${isSelf ? 'self' : ''}">${escHtml(msg.content)}</div>
+          </div>`;
+        }
+
+        lastUserId = msg.user_id;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // Input area
+    const inputArea = document.getElementById('inputArea');
+    if (status === 'closed') {
+      inputArea.innerHTML = `<div class="closed-banner">📋 This conversation has been closed and posted as a note on this deal.</div>`;
+    } else {
+      inputArea.innerHTML = `
+        <div class="input-area">
+          <div class="input-row">
+            <textarea class="msg-input" id="msgInput" placeholder="Type a message..." rows="1"
+              onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+            <button class="btn-send" onclick="sendMessage()" id="btnSend">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+              </svg>
+            </button>
+          </div>
+        </div>`;
+    }
+
+    if (wasAtBottom || messages.length <= 5) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }
+
+  // ── SEND MESSAGE ─────────────────────────────────────────────────────────────
+
+  async function sendMessage() {
+    const input = document.getElementById('msgInput');
+    const content = input?.value.trim();
+    if (!content || !currentThreadId) return;
+
+    const btn = document.getElementById('btnSend');
+    btn.disabled = true;
+    input.value = '';
+    input.style.height = '';
+
+    try {
+      await fetch(`${BACKEND}/threads/${currentThreadId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUser.id,
+          user_name: currentUser.name,
+          content
+        })
+      });
+      await loadMessages(currentThreadId, 'open');
+      updateBadge();
+    } catch (err) {
+      console.error('Send failed:', err);
+      input.value = content;
+    } finally {
+      btn.disabled = false;
+      input.focus();
+    }
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  function autoResize(el) {
+    el.style.height = '';
+    el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+  }
+
+  // ── CLOSE THREAD ─────────────────────────────────────────────────────────────
+
+  function promptClose() {
+    pendingCloseThreadId = currentThreadId;
+    document.getElementById('confirmDialog').classList.add('active');
+  }
+
+  function closeConfirm() {
+    document.getElementById('confirmDialog').classList.remove('active');
+    pendingCloseThreadId = null;
+  }
+
+  async function confirmClose() {
+    document.getElementById('confirmDialog').classList.remove('active');
+    if (!pendingCloseThreadId) return;
+
+    try {
+      await fetch(`${BACKEND}/threads/${pendingCloseThreadId}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_name: currentUser.name, auto_closed: false })
+      });
+      clearInterval(pollInterval);
+      await loadMessages(pendingCloseThreadId, 'closed');
+      document.getElementById('btnCloseThread').style.display = 'none';
+      await loadThreads();
+      updateBadge();
+    } catch (err) {
+      console.error('Close failed:', err);
+    }
+    pendingCloseThreadId = null;
+  }
+
+  // ── NEW THREAD ────────────────────────────────────────────────────────────────
+
+  function openModal() {
+    renderParticipantOptions();
+    document.getElementById('threadTitle').value = '';
+    document.getElementById('newThreadModal').classList.add('active');
+    setTimeout(() => document.getElementById('threadTitle').focus(), 100);
+  }
+
+  function closeModal() {
+    document.getElementById('newThreadModal').classList.remove('active');
+  }
+
+  function renderParticipantOptions() {
+    const el = document.getElementById('participantsList');
+    const others = allUsers.filter(u => u.id != currentUser.id);
+    if (!others.length) {
+      el.innerHTML = '<div style="color:var(--text-dim);font-size:11px;padding:4px">No other team members found</div>';
+      return;
+    }
+    el.innerHTML = others.map(u => `
+      <label class="participant-option">
+        <input type="checkbox" value="${u.id}" data-name="${escHtml(u.name)}" />
+        <span class="participant-name">${escHtml(u.name)}</span>
+      </label>`).join('');
+  }
+
+  async function createThread() {
+    const title = document.getElementById('threadTitle').value.trim();
+    if (!title) {
+      document.getElementById('threadTitle').focus();
+      return;
+    }
+
+    const checked = document.querySelectorAll('#participantsList input:checked');
+    const participants = Array.from(checked).map(el => ({
+      user_id: parseInt(el.value),
+      user_name: el.dataset.name
+    }));
+
+    try {
+      const res = await fetch(`${BACKEND}/threads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deal_id: dealId,
+          title,
+          user_id: currentUser.id,
+          user_name: currentUser.name,
+          participants
+        })
+      });
+      const data = await res.json();
+      closeModal();
+      await loadThreads();
+      openThread(data.id);
+    } catch (err) {
+      console.error('Create thread failed:', err);
+    }
+  }
+
+  // ── NAVIGATION ────────────────────────────────────────────────────────────────
+
+  function backToList() {
+    clearInterval(pollInterval);
+    currentThreadId = null;
+    document.getElementById('viewChat').classList.remove('active');
+    document.getElementById('viewThreads').classList.add('active');
+    loadThreads();
+    updateBadge();
+  }
+
+  // ── USERS ─────────────────────────────────────────────────────────────────────
+
+  async function loadUsers() {
+    try {
+      const res = await fetch(`${BACKEND}/users`);
+      allUsers = await res.json();
+    } catch (err) {
+      console.error('Failed to load users:', err);
+      allUsers = [];
+    }
+  }
+
+  // ── BADGE ─────────────────────────────────────────────────────────────────────
+
+  async function updateBadge() {
+    if (!sdk || !currentUser?.id) return;
+    try {
+      const res = await fetch(`${BACKEND}/unread/${currentUser.id}`);
+      const data = await res.json();
+      await sdk.execute('set_notifications', data.unread || 0);
+    } catch (err) {
+      // Badge update failure is non-critical
+    }
+  }
+
+  async function markRead(threadId) {
+    try {
+      await fetch(`${BACKEND}/threads/${threadId}/read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: currentUser.id })
+      });
+      updateBadge();
+    } catch (err) {}
+  }
+
+  // ── HELPERS ───────────────────────────────────────────────────────────────────
+
+  function formatTime(isoStr) {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    const now = new Date();
+    const diffDays = Math.floor((now - d) / 86400000);
+    if (diffDays === 0) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return d.toLocaleDateString([], { weekday: 'short' });
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+
+  function formatDate(dateStr) {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffDays = Math.floor((now - d) / 86400000);
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    return d.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+  }
+
+  function truncate(str, n) {
+    return str.length > n ? str.slice(0, n) + '...' : str;
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Badge refresh every 30s
+  setInterval(updateBadge, 30000);
+
+  init();
+</script>
+</body>
+</html>
