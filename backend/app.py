@@ -280,8 +280,7 @@ def debug():
 
 @app.route("/panel")
 def panel():
-    frontend_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'frontend')
-    return send_from_directory(frontend_path, 'index.html')
+    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), 'index.html')
 
 @app.route("/callback")
 def callback():
