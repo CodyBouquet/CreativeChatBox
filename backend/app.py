@@ -261,6 +261,21 @@ def health():
     return jsonify({"status": "ok", "timestamp": datetime.datetime.utcnow().isoformat()})
 
 
+@app.route("/debug")
+def debug():
+    base = os.path.dirname(os.path.abspath(__file__))
+    frontend_path = os.path.join(base, '..', 'frontend')
+    files = []
+    try:
+        files = os.listdir(frontend_path)
+    except Exception as e:
+        files = [str(e)]
+    return jsonify({
+        "base": base,
+        "frontend_path": frontend_path,
+        "files": files
+    })
+
 # ─── FRONTEND ────────────────────────────────────────────────────────────────
 
 @app.route("/panel")
