@@ -81,11 +81,9 @@ def create_thread():
     """, (deal_id, title, created_by, created_by_name))
     thread_id = cursor.lastrowid
 
-    # Add creator as participant
     db.execute("INSERT INTO participants (thread_id, user_id, user_name) VALUES (?, ?, ?)",
                (thread_id, created_by, created_by_name))
 
-    # Add other participants
     for p in participants:
         if p["user_id"] != created_by:
             db.execute("INSERT INTO participants (thread_id, user_id, user_name) VALUES (?, ?, ?)",
@@ -110,28 +108,23 @@ def close_thread(thread_id):
     if thread["status"] == "closed":
         return jsonify({"error": "Thread already closed"}), 400
 
-    # Get all messages
     messages = db.execute("""
         SELECT user_name, content, created_at FROM messages
         WHERE thread_id = ? ORDER BY created_at ASC
     """, (thread_id,)).fetchall()
 
-    # Get all participants
     participants = db.execute("""
         SELECT user_id, user_name FROM participants WHERE thread_id = ?
     """, (thread_id,)).fetchall()
 
-    # Format note
     note = format_note(thread, messages, participants, closed_by, auto_closed)
 
-    # Post to Pipedrive
     try:
         post_note_to_deal(thread["deal_id"], note)
         logger.info(f"Note posted to deal {thread['deal_id']} for thread {thread_id}")
     except Exception as e:
         logger.error(f"Failed to post note to Pipedrive: {e}")
 
-    # Mark thread closed
     db.execute("""
         UPDATE threads SET status = 'closed', closed_at = datetime('now') WHERE id = ?
     """, (thread_id,))
@@ -153,7 +146,7 @@ def format_note(thread, messages, participants, closed_by, auto_closed):
     ]
 
     for msg in messages:
-        time = msg["created_at"][11:16]  # HH:MM
+        time = msg["created_at"][11:16]
         date = msg["created_at"][:10]
         lines.append(f"[{date} {time}]  {msg['user_name']}: {msg['content']}")
 
@@ -194,19 +187,16 @@ def send_message(thread_id):
     if thread["status"] == "closed":
         return jsonify({"error": "Thread is closed"}), 400
 
-    # Insert message
     cursor = db.execute("""
         INSERT INTO messages (thread_id, user_id, user_name, content, created_at)
         VALUES (?, ?, ?, ?, datetime('now'))
     """, (thread_id, user_id, user_name, content))
     message_id = cursor.lastrowid
 
-    # Update thread activity
     db.execute("""
         UPDATE threads SET last_activity_at = datetime('now') WHERE id = ?
     """, (thread_id,))
 
-    # Add sender as participant if not already
     existing = db.execute("""
         SELECT 1 FROM participants WHERE thread_id = ? AND user_id = ?
     """, (thread_id, user_id)).fetchone()
@@ -232,7 +222,7 @@ def get_users():
         return jsonify([]), 200
 
 
-# ─── UNREAD COUNT (for notification badge) ───────────────────────────────────
+# ─── UNREAD COUNT ─────────────────────────────────────────────────────────────
 
 @app.route("/unread/<int:user_id>", methods=["GET"])
 def get_unread_count(user_id):
@@ -271,13 +261,17 @@ def health():
     return jsonify({"status": "ok", "timestamp": datetime.datetime.utcnow().isoformat()})
 
 
+# ─── FRONTEND ────────────────────────────────────────────────────────────────
+
 @app.route("/panel")
 def panel():
-    return send_from_directory('../frontend', 'index.html')
+    frontend_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'frontend')
+    return send_from_directory(frontend_path, 'index.html')
 
 @app.route("/callback")
 def callback():
     return "OK", 200
+
 
 # ─── STARTUP ─────────────────────────────────────────────────────────────────
 
