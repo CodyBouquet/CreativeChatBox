@@ -7,6 +7,7 @@ import os
 import jwt
 import datetime
 import logging
+import requests as req
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -15,6 +16,8 @@ app = Flask(__name__)
 CORS(app)
 
 PIPEDRIVE_CLIENT_SECRET = os.getenv("PIPEDRIVE_CLIENT_SECRET")
+PIPEDRIVE_CLIENT_ID = os.getenv("PIPEDRIVE_CLIENT_ID")
+BACKEND_URL = os.getenv("BACKEND_URL", "https://creativechatbox-production.up.railway.app")
 
 def verify_jwt(token):
     try:
@@ -261,30 +264,50 @@ def health():
     return jsonify({"status": "ok", "timestamp": datetime.datetime.utcnow().isoformat()})
 
 
-@app.route("/debug")
-def debug():
-    base = os.path.dirname(os.path.abspath(__file__))
-    frontend_path = os.path.join(base, '..', 'frontend')
-    files = []
-    try:
-        files = os.listdir(frontend_path)
-    except Exception as e:
-        files = [str(e)]
-    return jsonify({
-        "base": base,
-        "frontend_path": frontend_path,
-        "files": files
-    })
-
 # ─── FRONTEND ────────────────────────────────────────────────────────────────
 
 @app.route("/panel")
 def panel():
     return send_from_directory(os.path.dirname(os.path.abspath(__file__)), 'index.html')
 
+
+# ─── OAUTH ───────────────────────────────────────────────────────────────────
+
 @app.route("/callback")
 def callback():
-    return "OK", 200
+    code = request.args.get("code")
+    if not code:
+        return "No authorization code received.", 400
+
+    try:
+        response = req.post(
+            "https://oauth.pipedrive.com/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": f"{BACKEND_URL}/callback",
+                "client_id": PIPEDRIVE_CLIENT_ID,
+                "client_secret": PIPEDRIVE_CLIENT_SECRET
+            }
+        )
+        token_data = response.json()
+        logger.info(f"OAuth token exchange: {response.status_code}")
+
+        if response.ok:
+            return """
+                <html><body style='font-family:sans-serif;text-align:center;padding:50px'>
+                <h2>✅ Deal Chat installed successfully!</h2>
+                <p>You can close this tab and return to Pipedrive.</p>
+                <p>Open any deal to find the Deal Chat panel in the left sidebar.</p>
+                </body></html>
+            """, 200
+        else:
+            logger.error(f"Token exchange failed: {token_data}")
+            return f"Installation failed: {token_data.get('error_description', 'Unknown error')}", 400
+
+    except Exception as e:
+        logger.error(f"OAuth callback error: {e}")
+        return f"Error during installation: {str(e)}", 500
 
 
 # ─── STARTUP ─────────────────────────────────────────────────────────────────
