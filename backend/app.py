@@ -273,41 +273,19 @@ def panel():
 
 # ─── OAUTH ───────────────────────────────────────────────────────────────────
 
+@app.route("/")
+def index():
+    code = request.args.get("code")
+    if code:
+        return "Installed successfully! Return to Pipedrive.", 200
+    return "Deal Chat API running.", 200
+
 @app.route("/callback")
 def callback():
     code = request.args.get("code")
-    if not code:
-        return "No authorization code received.", 400
-
-    try:
-        response = req.post(
-            "https://oauth.pipedrive.com/oauth/token",
-            data={
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": f"{BACKEND_URL}/callback",
-                "client_id": PIPEDRIVE_CLIENT_ID,
-                "client_secret": PIPEDRIVE_CLIENT_SECRET
-            }
-        )
-        token_data = response.json()
-        logger.info(f"OAuth token exchange: {response.status_code}")
-
-        if response.ok:
-            return """
-                <html><body style='font-family:sans-serif;text-align:center;padding:50px'>
-                <h2>✅ Deal Chat installed successfully!</h2>
-                <p>You can close this tab and return to Pipedrive.</p>
-                <p>Open any deal to find the Deal Chat panel in the left sidebar.</p>
-                </body></html>
-            """, 200
-        else:
-            logger.error(f"Token exchange failed: {token_data}")
-            return f"Installation failed: {token_data.get('error_description', 'Unknown error')}", 400
-
-    except Exception as e:
-        logger.error(f"OAuth callback error: {e}")
-        return f"Error during installation: {str(e)}", 500
+    if code:
+        return "Installed successfully! Return to Pipedrive.", 200
+    return "No authorization code received.", 400
 
 
 # ─── STARTUP ─────────────────────────────────────────────────────────────────
