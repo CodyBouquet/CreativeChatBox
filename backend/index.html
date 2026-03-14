@@ -960,11 +960,12 @@
       container.innerHTML = html;
     }
 
-    // Input area
+    // Input area — preserve draft text across polls
     const inputArea = document.getElementById('inputArea');
+    const existingDraft = document.getElementById('msgInput')?.value || '';
     if (status === 'closed') {
       inputArea.innerHTML = `<div class="closed-banner">📋 This conversation has been closed and posted as a note on this deal.</div>`;
-    } else {
+    } else if (!document.getElementById('msgInput')) {
       inputArea.innerHTML = `
         <div class="input-area">
           <div class="input-row">
@@ -977,6 +978,10 @@
             </button>
           </div>
         </div>`;
+      if (existingDraft) {
+        const input = document.getElementById('msgInput');
+        if (input) { input.value = existingDraft; autoResize(input); }
+      }
     }
 
     if (wasAtBottom || messages.length <= 5) {
