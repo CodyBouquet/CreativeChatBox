@@ -698,7 +698,8 @@
 
   async function init() {
     try {
-      sdk = await new AppExtensionsSDK().initialize({ size: { height: 600 } });
+      sdk = new AppExtensionsSDK();
+      await sdk.initialize({ size: { height: 600 } });
       const context = await sdk.getContext();
       dealId = context.deal?.id || context.id;
       currentUser = {
