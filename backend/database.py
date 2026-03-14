@@ -57,6 +57,13 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
         CREATE INDEX IF NOT EXISTS idx_threads_activity ON threads(last_activity_at);
 
+        CREATE TABLE IF NOT EXISTS notifications (
+            thread_id INTEGER NOT NULL REFERENCES threads(id),
+            user_id INTEGER NOT NULL,
+            activity_id INTEGER NOT NULL,
+            PRIMARY KEY (thread_id, user_id)
+        );
+
         CREATE TABLE IF NOT EXISTS oauth_tokens (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             access_token TEXT NOT NULL,

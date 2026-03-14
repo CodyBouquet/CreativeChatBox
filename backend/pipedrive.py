@@ -1,6 +1,7 @@
 import requests
 import os
 import logging
+import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,33 @@ def post_note_to_deal(deal_id, content):
     response.raise_for_status()
     logger.info(f"Note posted to deal {deal_id}")
     return response.json()
+
+
+def create_activity(user_id, deal_id, thread_title, sender_name, message_preview):
+    api_domain = _api_domain_from_db()
+    url = f"{_base_url(api_domain)}/activities"
+    headers, params = _get_auth()
+    payload = {
+        "subject": f"💬 New message in: {thread_title}",
+        "type": "task",
+        "user_id": user_id,
+        "deal_id": deal_id,
+        "due_date": datetime.date.today().isoformat(),
+        "note": f"{sender_name}: {message_preview}",
+        "done": 0,
+    }
+    response = requests.post(url, json=payload, headers=headers, params=params)
+    response.raise_for_status()
+    data = response.json()
+    return data.get("data", {}).get("id")
+
+
+def mark_activity_done(activity_id):
+    api_domain = _api_domain_from_db()
+    url = f"{_base_url(api_domain)}/activities/{activity_id}"
+    headers, params = _get_auth()
+    response = requests.put(url, json={"done": 1}, headers=headers, params=params)
+    response.raise_for_status()
 
 
 def get_pipedrive_users():

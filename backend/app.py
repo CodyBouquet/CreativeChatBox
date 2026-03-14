@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from database import init_db, get_db
-from pipedrive import post_note_to_deal, get_pipedrive_users
+from pipedrive import post_note_to_deal, get_pipedrive_users, create_activity, mark_activity_done
 from scheduler import start_scheduler
 import os
 import jwt
@@ -296,6 +296,34 @@ def send_message(thread_id):
 
     db.commit()
 
+    # Notify participants who don't already have a pending activity for this thread
+    try:
+        participants = db.execute(
+            "SELECT user_id FROM participants WHERE thread_id = ? AND user_id != ?",
+            (thread_id, user_id)
+        ).fetchall()
+        for p in participants:
+            already_notified = db.execute(
+                "SELECT activity_id FROM notifications WHERE thread_id = ? AND user_id = ?",
+                (thread_id, p["user_id"])
+            ).fetchone()
+            if not already_notified:
+                activity_id = create_activity(
+                    user_id=p["user_id"],
+                    deal_id=thread["deal_id"],
+                    thread_title=thread["title"],
+                    sender_name=user_name,
+                    message_preview=content[:120]
+                )
+                if activity_id:
+                    db.execute(
+                        "INSERT OR REPLACE INTO notifications (thread_id, user_id, activity_id) VALUES (?, ?, ?)",
+                        (thread_id, p["user_id"], activity_id)
+                    )
+                    db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to send activity notifications: {e}")
+
     msg = db.execute("SELECT * FROM messages WHERE id = ?", (message_id,)).fetchone()
     return jsonify(dict(msg)), 201
 
@@ -340,6 +368,22 @@ def mark_read(thread_id):
         INSERT OR REPLACE INTO read_receipts (thread_id, user_id, last_read_at)
         VALUES (?, ?, datetime('now'))
     """, (thread_id, user_id))
+
+    # Mark pending activity notification as done
+    try:
+        row = db.execute(
+            "SELECT activity_id FROM notifications WHERE thread_id = ? AND user_id = ?",
+            (thread_id, user_id)
+        ).fetchone()
+        if row:
+            mark_activity_done(row["activity_id"])
+            db.execute(
+                "DELETE FROM notifications WHERE thread_id = ? AND user_id = ?",
+                (thread_id, user_id)
+            )
+    except Exception as e:
+        logger.warning(f"Failed to mark activity done: {e}")
+
     db.commit()
     return jsonify({"status": "ok"})
 
