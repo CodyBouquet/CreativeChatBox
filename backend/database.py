@@ -56,6 +56,16 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(thread_id);
         CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
         CREATE INDEX IF NOT EXISTS idx_threads_activity ON threads(last_activity_at);
+
+        CREATE TABLE IF NOT EXISTS oauth_tokens (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            access_token TEXT NOT NULL,
+            refresh_token TEXT NOT NULL,
+            api_domain TEXT NOT NULL,
+            token_type TEXT NOT NULL DEFAULT 'Bearer',
+            expires_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
     """)
     db.commit()
     db.close()

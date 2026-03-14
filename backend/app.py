@@ -8,6 +8,7 @@ import jwt
 import datetime
 import logging
 import requests as req
+from base64 import b64encode
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,6 +20,8 @@ PIPEDRIVE_CLIENT_SECRET = os.getenv("PIPEDRIVE_CLIENT_SECRET")
 PIPEDRIVE_CLIENT_ID = os.getenv("PIPEDRIVE_CLIENT_ID")
 BACKEND_URL = os.getenv("BACKEND_URL", "https://creativechatbox-production.up.railway.app")
 
+PIPEDRIVE_TOKEN_URL = "https://oauth.pipedrive.com/oauth/token"
+
 def verify_jwt(token):
     try:
         decoded = jwt.decode(token, PIPEDRIVE_CLIENT_SECRET, algorithms=["HS256"])
@@ -26,6 +29,89 @@ def verify_jwt(token):
     except Exception as e:
         logger.warning(f"JWT verification failed: {e}")
         return None
+
+def _basic_auth_header():
+    credentials = b64encode(f"{PIPEDRIVE_CLIENT_ID}:{PIPEDRIVE_CLIENT_SECRET}".encode()).decode()
+    return {"Authorization": f"Basic {credentials}"}
+
+def exchange_code_for_tokens(code):
+    """Exchange an authorization code for access + refresh tokens."""
+    resp = req.post(
+        PIPEDRIVE_TOKEN_URL,
+        headers=_basic_auth_header(),
+        data={
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": f"{BACKEND_URL}/callback",
+        },
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+def refresh_access_token(refresh_token):
+    """Use a refresh token to obtain a new access token."""
+    resp = req.post(
+        PIPEDRIVE_TOKEN_URL,
+        headers=_basic_auth_header(),
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        },
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+def store_tokens(token_data):
+    """Persist OAuth tokens to the database (single-row private-app table)."""
+    import sqlite3
+    from database import DATABASE
+    expires_at = (
+        datetime.datetime.utcnow()
+        + datetime.timedelta(seconds=token_data.get("expires_in", 3600))
+    ).isoformat()
+    db = sqlite3.connect(DATABASE)
+    db.execute("""
+        INSERT INTO oauth_tokens (id, access_token, refresh_token, api_domain, token_type, expires_at, updated_at)
+        VALUES (1, :access_token, :refresh_token, :api_domain, :token_type, :expires_at, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+            access_token = excluded.access_token,
+            refresh_token = excluded.refresh_token,
+            api_domain = excluded.api_domain,
+            token_type = excluded.token_type,
+            expires_at = excluded.expires_at,
+            updated_at = excluded.updated_at
+    """, {
+        "access_token": token_data["access_token"],
+        "refresh_token": token_data["refresh_token"],
+        "api_domain": token_data.get("api_domain", ""),
+        "token_type": token_data.get("token_type", "Bearer"),
+        "expires_at": expires_at,
+    })
+    db.commit()
+    db.close()
+    logger.info("OAuth tokens stored successfully")
+
+def get_valid_access_token():
+    """Return a valid access token, refreshing it if expired."""
+    import sqlite3
+    from database import DATABASE
+    db = sqlite3.connect(DATABASE)
+    db.row_factory = sqlite3.Row
+    row = db.execute("SELECT * FROM oauth_tokens WHERE id = 1").fetchone()
+    db.close()
+    if not row:
+        return None
+    expires_at = datetime.datetime.fromisoformat(row["expires_at"])
+    if datetime.datetime.utcnow() >= expires_at - datetime.timedelta(minutes=5):
+        logger.info("Access token expired, refreshing...")
+        try:
+            token_data = refresh_access_token(row["refresh_token"])
+            store_tokens(token_data)
+            return token_data["access_token"]
+        except Exception as e:
+            logger.error(f"Token refresh failed: {e}")
+            return None
+    return row["access_token"]
 
 # ─── THREADS ─────────────────────────────────────────────────────────────────
 
@@ -268,7 +354,16 @@ def health():
 
 @app.route("/panel")
 def panel():
-    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), 'index.html')
+    # Inject the real backend URL so the frontend doesn't need a hardcoded placeholder
+    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'index.html')
+    with open(html_path, 'r', encoding='utf-8') as f:
+        html = f.read()
+    html = html.replace(
+        "const BACKEND = 'https://your-railway-app.railway.app'; // ← UPDATE THIS",
+        f"const BACKEND = '{BACKEND_URL}';"
+    )
+    from flask import Response
+    return Response(html, mimetype='text/html')
 
 
 # ─── OAUTH ───────────────────────────────────────────────────────────────────
@@ -277,15 +372,34 @@ def panel():
 def index():
     code = request.args.get("code")
     if code:
-        return "Installed successfully! Return to Pipedrive.", 200
+        # Pipedrive may use "/" as the redirect URI — handle it the same as /callback
+        try:
+            token_data = exchange_code_for_tokens(code)
+            store_tokens(token_data)
+            logger.info("OAuth installation completed via / route")
+            return "Deal Chat installed successfully! You can close this tab and return to Pipedrive.", 200
+        except Exception as e:
+            logger.error(f"OAuth token exchange failed: {e}")
+            return f"Installation failed: {e}", 500
     return "Deal Chat API running.", 200
 
 @app.route("/callback")
 def callback():
     code = request.args.get("code")
-    if code:
-        return "Installed successfully! Return to Pipedrive.", 200
-    return "No authorization code received.", 400
+    error = request.args.get("error")
+    if error:
+        logger.warning(f"OAuth error from Pipedrive: {error}")
+        return f"Authorization denied: {error}", 400
+    if not code:
+        return "No authorization code received.", 400
+    try:
+        token_data = exchange_code_for_tokens(code)
+        store_tokens(token_data)
+        logger.info("OAuth installation completed via /callback route")
+        return "Deal Chat installed successfully! You can close this tab and return to Pipedrive.", 200
+    except Exception as e:
+        logger.error(f"OAuth token exchange failed: {e}")
+        return f"Installation failed: {e}", 500
 
 
 # ─── STARTUP ─────────────────────────────────────────────────────────────────
