@@ -226,26 +226,27 @@ def format_note(thread, messages, participants, closed_by, auto_closed):
     participant_names = " ".join([f"@{p['user_name']}" for p in participants])
     close_reason = "Auto-closed after 24hrs inactivity" if auto_closed else f"Closed by {closed_by}"
 
+    divider = "─" * 53
     lines = [
-        f"── Team Chat: {thread['title']} ──────────────────────",
-        f"Deal Chat  |  {participant_names}",
-        f"Started: {thread['created_at']}",
-        "─────────────────────────────────────────────────────",
-        ""
+        f"<b>💬 {thread['title']}</b>",
+        f"<i>Deal Chat &nbsp;|&nbsp; {participant_names}</i>",
+        f"<i>Started: {thread['created_at']}</i>",
+        divider,
+        "",
     ]
 
     for msg in messages:
         time = msg["created_at"][11:16]
         date = msg["created_at"][:10]
-        lines.append(f"[{date} {time}]  {msg['user_name']}: {msg['content']}")
+        lines.append(f"<b>{msg['user_name']}</b> <span style='color:#888'>[{date} {time}]</span><br>{msg['content']}")
+        lines.append("")
 
     lines.extend([
-        "",
-        "─────────────────────────────────────────────────────",
-        f"[{close_reason}]"
+        divider,
+        f"<i>{close_reason}</i>",
     ])
 
-    return "\n".join(lines)
+    return "<br>".join(lines)
 
 
 # ─── MESSAGES ────────────────────────────────────────────────────────────────
