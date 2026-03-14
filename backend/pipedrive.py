@@ -26,7 +26,8 @@ def _get_auth():
 
 def _base_url(api_domain=None):
     if api_domain:
-        return f"https://{api_domain}/api/v1"
+        domain = api_domain.replace("https://", "").replace("http://", "").rstrip("/")
+        return f"https://{domain}/api/v1"
     return f"https://{PIPEDRIVE_COMPANY_DOMAIN}.pipedrive.com/api/v1"
 
 
