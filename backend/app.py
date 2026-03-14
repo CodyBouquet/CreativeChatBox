@@ -395,6 +395,7 @@ def index():
 
 @app.route("/callback")
 def callback():
+    logger.info(f"Callback hit - args: {dict(request.args)} - method: {request.method}")
     code = request.args.get("code")
     error = request.args.get("error")
     if error:
