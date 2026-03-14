@@ -29,6 +29,42 @@
       --font-mono: 'JetBrains Mono', monospace;
     }
 
+    body.light-mode {
+      --bg: #ffffff;
+      --surface: #f3f4f8;
+      --surface2: #e8eaf2;
+      --border: #d1d5e0;
+      --accent: #4f6ef7;
+      --accent-hover: #3a58e8;
+      --accent-soft: rgba(79,110,247,0.10);
+      --text: #111827;
+      --text-muted: #6b7280;
+      --text-dim: #9ca3af;
+      --green: #16a34a;
+      --yellow: #d97706;
+      --red: #dc2626;
+      --system: #e5e7eb;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #ffffff;
+        --surface: #f3f4f8;
+        --surface2: #e8eaf2;
+        --border: #d1d5e0;
+        --accent: #4f6ef7;
+        --accent-hover: #3a58e8;
+        --accent-soft: rgba(79,110,247,0.10);
+        --text: #111827;
+        --text-muted: #6b7280;
+        --text-dim: #9ca3af;
+        --green: #16a34a;
+        --yellow: #d97706;
+        --red: #dc2626;
+        --system: #e5e7eb;
+      }
+    }
+
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
     html, body {
@@ -703,26 +739,25 @@
 
       // Extract context from URL params Pipedrive injects into the iframe
       const params = new URLSearchParams(window.location.search);
-      dealId = parseInt(params.get('selectedIds[0]') || params.get('id') || params.get('deal_id'));
+      dealId = parseInt(params.get('selectedIds') || params.get('selectedIds[0]') || params.get('deal_id'));
       const userId = parseInt(params.get('userId') || params.get('user_id'));
 
-      // Try GET_METADATA for richer context
+      // Apply theme from Pipedrive URL param
+      const theme = params.get('theme');
+      if (theme === 'light') document.body.classList.add('light-mode');
+
+      // Look up user name from users list
+      currentUser = { id: userId, name: 'Unknown' };
       try {
-        const meta = await sdk.execute('GET_METADATA');
-        console.log('metadata:', meta);
-        if (meta?.data?.deal?.id) dealId = meta.data.deal.id;
-        if (meta?.data?.user?.id) currentUser = { id: meta.data.user.id, name: meta.data.user.name || 'Unknown' };
+        const usersRes = await fetch(`${BACKEND}/users`);
+        const users = await usersRes.json();
+        allUsers = users;
+        const match = users.find(u => u.id === userId);
+        if (match) currentUser = { id: match.id, name: match.name };
       } catch(e) {
-        console.log('GET_METADATA not available, using URL params');
+        console.log('Could not load users:', e);
       }
 
-      if (!currentUser) {
-        currentUser = { id: userId, name: 'Unknown' };
-      }
-
-      console.log('dealId:', dealId, 'user:', currentUser, 'params:', Object.fromEntries(params));
-
-      await loadUsers();
       renderApp();
       await loadThreads();
       updateBadge();
