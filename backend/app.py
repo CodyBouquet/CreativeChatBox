@@ -368,6 +368,16 @@ def panel():
 
 # ─── OAUTH ───────────────────────────────────────────────────────────────────
 
+@app.route("/install")
+def install():
+    from flask import redirect
+    auth_url = (
+        f"https://oauth.pipedrive.com/oauth/authorize"
+        f"?client_id={PIPEDRIVE_CLIENT_ID}"
+        f"&redirect_uri={BACKEND_URL}/callback"
+    )
+    return redirect(auth_url)
+
 @app.route("/")
 def index():
     code = request.args.get("code")
