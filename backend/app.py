@@ -20,7 +20,7 @@ PIPEDRIVE_CLIENT_SECRET = os.getenv("PIPEDRIVE_CLIENT_SECRET")
 PIPEDRIVE_CLIENT_ID = os.getenv("PIPEDRIVE_CLIENT_ID")
 BACKEND_URL = os.getenv("BACKEND_URL", "https://creativechatbox-production.up.railway.app")
 
-PIPEDRIVE_TOKEN_URL = "https://oauth.pipedrive.com/oauth/token"
+PIPEDRIVE_TOKEN_URL = os.getenv("PIPEDRIVE_TOKEN_URL", "https://oauth.pipedrive.com/oauth/token")
 
 def verify_jwt(token):
     try:
